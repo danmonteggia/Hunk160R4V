@@ -1,255 +1,50 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<base target="_top">
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Hero Hunk 160R 4V</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap');
+const SHEET_ID = '1_uloa6EeIBHos98kkFhsCdUEbSlp3zCMdaAuO1LK1yg';
+const SHEET_GID = 1008636767;
 
-  :root{
-    --bg-deep:#080b10;
-    --bg-deep-2:#0d131b;
-    --glass-bg:rgba(255,255,255,0.055);
-    --glass-border:rgba(255,255,255,0.12);
-    --cyan:#caff69;
-    --amber:#ffb020;
-    --green:#34d399;
-    --text-1:#eef2f7;
-    --text-2:#8b96a5;
-    --text-3:#57626f;
+function doGet(e) {
+  const rows = getResponses();
+  const callback = e && e.parameter && e.parameter.callback;
+  if (callback) {
+    return ContentService
+      .createTextOutput(callback + '(' + JSON.stringify(rows) + ')')
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
   }
-  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-  html,body{margin:0; padding:0; background:var(--bg-deep); color:var(--text-1); font-family:'Inter',sans-serif;}
-  body{
-    min-height:100vh;
-    background:
-      radial-gradient(circle at 15% -10%, rgba(202,255,105,0.14), transparent 45%),
-      radial-gradient(circle at 90% 10%, rgba(255,176,32,0.10), transparent 40%),
-      linear-gradient(180deg, var(--bg-deep) 0%, var(--bg-deep-2) 100%);
-    padding: 28px 18px 60px;
-  }
-  .wrap{max-width:640px; margin:0 auto;}
+  return ContentService
+    .createTextOutput(JSON.stringify(rows))
+    .setMimeType(ContentService.MimeType.JSON);
+}
 
-  header{margin-bottom:22px;}
-  .eyebrow{
-    font-family:'JetBrains Mono',monospace; font-size:12px; letter-spacing:.12em; text-transform:uppercase;
-    color:var(--cyan); margin:0 0 6px;
-  }
-  h1{
-    font-family:'Rajdhani',sans-serif; font-weight:700; font-size:34px; line-height:1.05;
-    margin:0 0 8px; letter-spacing:.01em;
-  }
-  .sub{color:var(--text-2); font-size:14.5px; margin:0; max-width:46ch;}
+function getResponses() {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const sheet = ss.getSheets().find(s => s.getSheetId() === SHEET_GID) || ss.getSheets()[0];
+  const data = sheet.getDataRange().getValues();
+  const headers = data.shift();
 
-  .gauge-card{
-    background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:24px;
-    backdrop-filter: blur(18px) saturate(150%); -webkit-backdrop-filter: blur(18px) saturate(150%);
-    padding:22px 20px 18px; margin:22px 0; box-shadow: 0 8px 30px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
-    display:flex; align-items:center; gap:20px;
-  }
-  .gauge-svg{flex:0 0 auto;}
-  .gauge-stats{flex:1; min-width:0;}
-  .gauge-stats .pct{font-family:'Rajdhani',sans-serif; font-weight:700; font-size:26px; color:var(--text-1); line-height:1.2;}
-  .gauge-stats .pct span{font-size:14px; color:var(--text-2); font-weight:600;}
-  .gauge-stats .label{font-size:12.5px; color:var(--text-2); margin-top:4px;}
-  .mini-stats{display:flex; gap:18px; margin-top:12px;}
-  .mini-stats div{font-family:'JetBrains Mono',monospace;}
-  .mini-stats .n{font-size:17px; color:var(--text-1); font-weight:600;}
-  .mini-stats .l{font-size:10.5px; color:var(--text-3); text-transform:uppercase; letter-spacing:.06em;}
+  // Índices de columna por posición (evita problemas con tildes en las keys)
+  const idx = {
+    ts: 0,          // Marca temporal
+    nombre: 1,      // Nombre o Alias
+    lugar: 2,       // País y/o Ciudad
+    km: 3,          // Kilometraje actual aproximado
+    problema: 4,    // Tuviste algún problema mecánico o eléctrico? (SI/NO)
+    detalle: 5,     // Detalles del problema
+    positiva: 6,    // Experiencia positiva y si la recomendás
+    recomienda: 7   // Recomendás la Hero Hunk 160R 4V (SI/NO)
+  };
 
-  .gauge-card.rec{border-color:rgba(52,211,153,0.25);}
-  .gauge-card.rec .pct{color:var(--green);}
+  const rows = data
+    .filter(r => r[idx.nombre]) // descarta filas vacías
+    .map(r => ({
+      ts: r[idx.ts] instanceof Date ? r[idx.ts].toISOString() : String(r[idx.ts]),
+      nombre: r[idx.nombre],
+      lugar: r[idx.lugar],
+      km: r[idx.km],
+      problema: String(r[idx.problema]).trim().toUpperCase() === 'SI',
+      detalle: r[idx.detalle] || '',
+      positiva: r[idx.positiva] || '',
+      recomiendaRaw: String(r[idx.recomienda] || '').trim().toUpperCase()
+    }))
+    .reverse(); // más recientes primero
 
-  .filters{display:flex; gap:8px; margin:22px 0 16px;}
-  .filter{
-    font-family:'Inter',sans-serif; font-size:13px; font-weight:600; color:var(--text-2);
-    background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:999px;
-    padding:8px 15px; cursor:pointer; transition:.2s; backdrop-filter: blur(10px);
-  }
-  .filter.active{color:#0d1a00; background:var(--cyan); border-color:var(--cyan); box-shadow:0 0 20px rgba(202,255,105,0.35);}
-  .filter:hover:not(.active){border-color:rgba(255,255,255,0.25);}
-
-  .card{
-    background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:20px;
-    backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%);
-    padding:18px 18px 16px; margin-bottom:14px;
-    box-shadow: 0 6px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
-    transition: transform .2s, border-color .2s;
-  }
-  .card:hover{border-color:rgba(255,255,255,0.22); transform:translateY(-1px);}
-  .card-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
-  .rider{display:flex; flex-direction:column; gap:2px;}
-  .rider .name{font-family:'Rajdhani',sans-serif; font-weight:600; font-size:18px; color:var(--text-1);}
-  .rider .loc{font-size:12.5px; color:var(--text-2);}
-  .rider .loc::before{content:'📍 '; opacity:.6;}
-  .status{
-    font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:600; letter-spacing:.04em;
-    padding:5px 10px; border-radius:20px; white-space:nowrap; text-transform:uppercase;
-  }
-  .status.ok{color:var(--green); background:rgba(52,211,153,0.1); border:1px solid rgba(52,211,153,0.3);}
-  .status.issue{color:var(--amber); background:rgba(255,176,32,0.1); border:1px solid rgba(255,176,32,0.3);}
-
-  .km{font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--cyan); margin-top:10px; display:inline-block; letter-spacing:.02em;}
-  .km::before{content:'⏱ '; opacity:.7;}
-
-  .detail{font-size:13.5px; color:var(--text-2); line-height:1.5; margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.07);}
-  .detail b{color:var(--amber); font-weight:600;}
-  .quote{font-size:13.5px; color:var(--text-1); line-height:1.55; margin-top:10px; font-style:italic; opacity:.9;}
-  .quote::before{content:'"'; color:var(--cyan); opacity:.5; font-style:normal;}
-  .quote::after{content:'"'; color:var(--cyan); opacity:.5; font-style:normal;}
-
-  .ts{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-3); margin-top:12px; text-align:right;}
-
-  .cta{
-    display:inline-flex; align-items:center; gap:6px; margin-top:14px;
-    font-family:'JetBrains Mono',monospace; font-size:12.5px; font-weight:600; letter-spacing:.03em;
-    color:#0d1a00; background:var(--cyan); text-decoration:none;
-    padding:9px 16px; border-radius:999px; box-shadow:0 0 20px rgba(202,255,105,0.3);
-    transition:.2s;
-  }
-  .cta:hover{transform:translateY(-1px); box-shadow:0 0 26px rgba(202,255,105,0.45);}
-  .cta::after{content:'→';}
-
-  .empty, .loading{text-align:center; color:var(--text-2); padding:40px 0; font-size:14px;}
-  footer{text-align:center; color:var(--text-3); font-size:11.5px; margin-top:24px; font-family:'JetBrains Mono',monospace;}
-</style>
-</head>
-<body>
-<div class="wrap">
-  <header>
-    <p class="eyebrow">Comunidad · Bitácora de Ruta</p>
-    <h1>Hero Hunk 160R 4V</h1>
-    <p class="sub">Respuestas de la comunidad sobre kilometraje, fallas y experiencia real de manejo.</p>
-    <a class="cta" href="https://forms.gle/msXX4cBCmjLc13d38" target="_blank" rel="noopener">Responder encuesta para sumar a la comunidad</a>
-  </header>
-
-  <div id="gaugeSlot"></div>
-  <div id="recSlot"></div>
-
-  <div class="filters">
-    <div class="filter active" data-filter="all">Todos</div>
-    <div class="filter" data-filter="issue">Con problemas</div>
-    <div class="filter" data-filter="ok">Sin problemas</div>
-  </div>
-
-  <div id="cardsSlot"><div class="loading">Cargando respuestas…</div></div>
-
-  <footer>BITÁCORA DE RUTA · ACTUALIZADO EN VIVO DESDE EL FORMULARIO</footer>
-</div>
-
-<script>
-  // Reemplazá esto por la URL de tu implementación de Apps Script (termina en /exec)
-  const API_URL = 'https://script.google.com/macros/s/TU_ID_DE_IMPLEMENTACION/exec';
-
-  let ALL = [];
-
-  function fmtDate(iso){
-    try{
-      const d = new Date(iso);
-      return d.toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit', year:'numeric'}) + ' ' +
-             d.toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'});
-    }catch(e){ return iso; }
-  }
-
-  function renderGauge(list){
-    const total = list.length;
-    const withIssue = list.filter(r => r.problema).length;
-    const pct = total ? Math.round((withIssue/total)*100) : 0;
-    const countries = new Set(list.map(r => (r.lugar||'').split(',')[0].trim())).size;
-    const dash = 157;
-    const offset = dash - (dash * pct / 100);
-
-    document.getElementById('gaugeSlot').innerHTML = `
-      <div class="gauge-card">
-        <svg class="gauge-svg" width="120" height="70" viewBox="0 0 120 70">
-          <path d="M10,65 A50,50 0 0,1 110,65" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="10" stroke-linecap="round"/>
-          <path d="M10,65 A50,50 0 0,1 110,65" fill="none" stroke="var(--amber)" stroke-width="10" stroke-linecap="round"
-                stroke-dasharray="${dash}" stroke-dashoffset="${offset}" />
-          <text x="60" y="55" text-anchor="middle" font-family="Rajdhani" font-weight="700" font-size="20" fill="#eef2f7">${pct}%</text>
-        </svg>
-        <div class="gauge-stats">
-          <div class="pct">${withIssue} <span>de ${total} reportó una falla</span></div>
-          <div class="label">Índice de problemas reportados</div>
-          <div class="mini-stats">
-            <div><div class="n">${total}</div><div class="l">Respuestas</div></div>
-            <div><div class="n">${countries}</div><div class="l">Lugares</div></div>
-          </div>
-        </div>
-      </div>`;
-  }
-
-  function renderRec(list){
-    const answered = list.filter(r => r.recomiendaRaw === 'SI' || r.recomiendaRaw === 'NO');
-    const total = answered.length;
-    if (!total){ document.getElementById('recSlot').innerHTML = ''; return; }
-    const yes = answered.filter(r => r.recomiendaRaw === 'SI').length;
-    const pct = Math.round((yes/total)*100);
-    const dash = 157;
-    const offset = dash - (dash * pct / 100);
-
-    document.getElementById('recSlot').innerHTML = `
-      <div class="gauge-card rec">
-        <svg class="gauge-svg" width="120" height="70" viewBox="0 0 120 70">
-          <path d="M10,65 A50,50 0 0,1 110,65" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="10" stroke-linecap="round"/>
-          <path d="M10,65 A50,50 0 0,1 110,65" fill="none" stroke="var(--green)" stroke-width="10" stroke-linecap="round"
-                stroke-dasharray="${dash}" stroke-dashoffset="${offset}" />
-          <text x="60" y="55" text-anchor="middle" font-family="Rajdhani" font-weight="700" font-size="20" fill="#eef2f7">${pct}%</text>
-        </svg>
-        <div class="gauge-stats">
-          <div class="pct">${yes} <span>de ${total} recomienda la moto</span></div>
-          <div class="label">Índice de recomendación</div>
-        </div>
-      </div>`;
-  }
-
-  function renderCards(list){
-    const slot = document.getElementById('cardsSlot');
-    if (!list.length){ slot.innerHTML = '<div class="empty">Todavía no hay respuestas en esta categoría.</div>'; return; }
-    slot.innerHTML = list.map(r => `
-      <div class="card">
-        <div class="card-top">
-          <div class="rider"><div class="name">${r.nombre}</div><div class="loc">${r.lugar||'—'}</div></div>
-          <div class="status ${r.problema ? 'issue' : 'ok'}">${r.problema ? 'Con falla' : 'Sin fallas'}</div>
-        </div>
-        <div class="km">${r.km||'—'}</div>
-        ${r.problema && r.detalle ? `<div class="detail"><b>Detalle:</b> ${r.detalle}</div>` : ''}
-        ${r.positiva ? `<div class="quote">${r.positiva}</div>` : ''}
-        <div class="ts">${fmtDate(r.ts)}</div>
-      </div>
-    `).join('');
-  }
-
-  document.querySelectorAll('.filter').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.filter').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      const f = btn.dataset.filter;
-      const filtered = f === 'all' ? ALL : ALL.filter(r => f === 'issue' ? r.problema : !r.problema);
-      renderCards(filtered);
-    });
-  });
-
-  function loadData(){
-    const cbName = 'jsonpCallback_' + Date.now();
-    window[cbName] = function(data){
-      ALL = data || [];
-      renderGauge(ALL);
-      renderRec(ALL);
-      renderCards(ALL);
-      delete window[cbName];
-      script.remove();
-    };
-    const script = document.createElement('script');
-    script.src = API_URL + '?callback=' + cbName;
-    script.onerror = function(){
-      document.getElementById('cardsSlot').innerHTML = '<div class="empty">Error al cargar los datos.</div>';
-    };
-    document.body.appendChild(script);
-  }
-
-  loadData();
-</script>
-</body>
-</html>
+  return rows;
+}
