@@ -137,7 +137,7 @@
 
 <script>
   // Reemplazá esto por la URL de tu implementación de Apps Script (termina en /exec)
-  const API_URL = 'https://script.google.com/macros/s/AKfycbzWU36yrYwrzvEzGmPtc7TX5lGO5hjXmiLGhWhvV9bSGZZCTbr2aB4NGcwcYeh0gNHO/exec';
+  const API_URL = 'https://script.google.com/macros/s/TU_ID_DE_IMPLEMENTACION/exec';
 
   let ALL = [];
 
@@ -203,16 +203,24 @@
     });
   });
 
-  fetch(API_URL)
-    .then(r => r.json())
-    .then(data => {
+  function loadData(){
+    const cbName = 'jsonpCallback_' + Date.now();
+    window[cbName] = function(data){
       ALL = data || [];
       renderGauge(ALL);
       renderCards(ALL);
-    })
-    .catch(err => {
-      document.getElementById('cardsSlot').innerHTML = '<div class="empty">Error al cargar: ' + err.message + '</div>';
-    });
+      delete window[cbName];
+      script.remove();
+    };
+    const script = document.createElement('script');
+    script.src = API_URL + '?callback=' + cbName;
+    script.onerror = function(){
+      document.getElementById('cardsSlot').innerHTML = '<div class="empty">Error al cargar los datos.</div>';
+    };
+    document.body.appendChild(script);
+  }
+
+  loadData();
 </script>
 </body>
 </html>
