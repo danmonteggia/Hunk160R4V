@@ -59,6 +59,9 @@
   .mini-stats .n{font-size:17px; color:var(--text-1); font-weight:600;}
   .mini-stats .l{font-size:10.5px; color:var(--text-3); text-transform:uppercase; letter-spacing:.06em;}
 
+  .gauge-card.rec{border-color:rgba(52,211,153,0.25);}
+  .gauge-card.rec .pct{color:var(--green);}
+
   .filters{display:flex; gap:8px; margin:22px 0 16px;}
   .filter{
     font-family:'Inter',sans-serif; font-size:13px; font-weight:600; color:var(--text-2);
@@ -123,6 +126,7 @@
   </header>
 
   <div id="gaugeSlot"></div>
+  <div id="recSlot"></div>
 
   <div class="filters">
     <div class="filter active" data-filter="all">Todos</div>
@@ -137,7 +141,7 @@
 
 <script>
   // Reemplazá esto por la URL de tu implementación de Apps Script (termina en /exec)
-  const API_URL = 'https://script.google.com/macros/s/AKfycbyUiK9uDWUoRa3JsymIlk4XLLroI-YEKllWzf6GeQasmwTp9Z4jDiliP5NywAOa3C4g/exec';
+  const API_URL = 'https://script.google.com/macros/s/TU_ID_DE_IMPLEMENTACION/exec';
 
   let ALL = [];
 
@@ -176,6 +180,30 @@
       </div>`;
   }
 
+  function renderRec(list){
+    const answered = list.filter(r => r.recomiendaRaw === 'SI' || r.recomiendaRaw === 'NO');
+    const total = answered.length;
+    if (!total){ document.getElementById('recSlot').innerHTML = ''; return; }
+    const yes = answered.filter(r => r.recomiendaRaw === 'SI').length;
+    const pct = Math.round((yes/total)*100);
+    const dash = 157;
+    const offset = dash - (dash * pct / 100);
+
+    document.getElementById('recSlot').innerHTML = `
+      <div class="gauge-card rec">
+        <svg class="gauge-svg" width="120" height="70" viewBox="0 0 120 70">
+          <path d="M10,65 A50,50 0 0,1 110,65" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="10" stroke-linecap="round"/>
+          <path d="M10,65 A50,50 0 0,1 110,65" fill="none" stroke="var(--green)" stroke-width="10" stroke-linecap="round"
+                stroke-dasharray="${dash}" stroke-dashoffset="${offset}" />
+          <text x="60" y="55" text-anchor="middle" font-family="Rajdhani" font-weight="700" font-size="20" fill="#eef2f7">${pct}%</text>
+        </svg>
+        <div class="gauge-stats">
+          <div class="pct">${yes} <span>de ${total} recomienda la moto</span></div>
+          <div class="label">Índice de recomendación</div>
+        </div>
+      </div>`;
+  }
+
   function renderCards(list){
     const slot = document.getElementById('cardsSlot');
     if (!list.length){ slot.innerHTML = '<div class="empty">Todavía no hay respuestas en esta categoría.</div>'; return; }
@@ -208,6 +236,7 @@
     window[cbName] = function(data){
       ALL = data || [];
       renderGauge(ALL);
+      renderRec(ALL);
       renderCards(ALL);
       delete window[cbName];
       script.remove();
